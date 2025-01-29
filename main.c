@@ -10,9 +10,7 @@
 #define PACKET_SIZE 8
 #define OUTPUT_FILE "data.dat"
 
-#define ACCEL_SCALE 32768.0    // Scaling factor for acceleration
-#define GYRO_SCALE 32768.0     // Scaling factor for gyroscope
-#define ANGLE_SCALE 32768.0    // Scaling factor for Euler angles
+#define SCALING_FACTOR 32768.0   
 
 int16_t combine_bytes(uint8_t high, uint8_t low) {
     return (int16_t)((high << 8) | low);
@@ -33,17 +31,17 @@ void process_packet(uint8_t *buffer, int output_fd) {
     int16_t yaw_raw = combine_bytes(buffer[18], buffer[19]);
 
     // Convert to double using scale factors
-    double ax = ax_raw / ACCEL_SCALE;
-    double ay = ay_raw / ACCEL_SCALE;
-    double az = az_raw / ACCEL_SCALE;
+    double ax = ax_raw / SCALING_FACTOR;
+    double ay = ay_raw / SCALING_FACTOR;
+    double az = az_raw / SCALING_FACTOR;
 
-    double wx = wx_raw / GYRO_SCALE;
-    double wy = wy_raw / GYRO_SCALE;
-    double wz = wz_raw / GYRO_SCALE;
+    double wx = wx_raw / SCALING_FACTOR;
+    double wy = wy_raw / SCALING_FACTOR;
+    double wz = wz_raw / SCALING_FACTOR;
 
-    double roll = roll_raw / ANGLE_SCALE;
-    double pitch = pitch_raw / ANGLE_SCALE;
-    double yaw = yaw_raw / ANGLE_SCALE;
+    double roll = roll_raw / SCALING_FACTOR;
+    double pitch = pitch_raw / SCALING_FACTOR;
+    double yaw = yaw_raw / SCALING_FACTOR;
 
     // Print to console
     printf("ax:  %lf ay:  %lf az:  %lf\n", ax, ay, az);
@@ -55,23 +53,23 @@ void process_packet(uint8_t *buffer, int output_fd) {
     write(output_fd, data, sizeof(data));
 }
 
+int checkError(int val, const char *msg){
+    if (val == -1)
+    {
+        perror(msg);
+        exit(EXIT_FAILURE);
+    }
+    return val;
+}
+
 int main() {
     const char *input_file = "raw.dat";
     
-    // Open input file (binary)
-    int input_fd = open(input_file, O_RDONLY);
-    if (input_fd == -1) {
-        perror("Error opening raw.dat");
-        return EXIT_FAILURE;
-    }
+    // Open input file to read
+    int input_fd = checkError(open(input_file, O_RDONLY), "Open to read");
 
-    // Open output file (binary)
-    int output_fd = open(OUTPUT_FILE, O_WRONLY | O_CREAT | O_TRUNC, 0644);
-    if (output_fd == -1) {
-        perror("Error opening data.dat");
-        close(input_fd);
-        return EXIT_FAILURE;
-    }
+    // Open output file, and if it doesn't exist create it, and if it does exist, truncate it
+    int output_fd = checkError(open(OUTPUT_FILE, O_WRONLY | O_CREAT | O_TRUNC, 0644),"Open to write");
 
     uint8_t buffer[PACKET_SIZE];  // Buffer for reading a packet
     ssize_t bytesRead;
@@ -81,79 +79,10 @@ int main() {
         process_packet(buffer, output_fd);
     }
 
-    if (bytesRead != 0) {
-        fprintf(stderr, "Warning: Incomplete data packet at end of file.\n");
-    }
-
-    // Close file descriptors
+    // Close file input and output files
     close(input_fd);
     close(output_fd);
 
     printf("Processing complete. Data written to %s\n", OUTPUT_FILE);
     return EXIT_SUCCESS;
 }
-
-// struct data
-// {
-//     double ax;
-//     double ay;
-//     double az;
-    
-//     double wx;
-//     double wy;
-//     double wz;
-
-//     double roll;
-//     double pitch;
-//     double yaw;
-// };
-
-// int checkError(int val, const char *msg){
-//     if (val == -1)
-//     {
-//         perror(msg);
-//         exit(EXIT_FAILURE);
-//     }
-//     return val;
-// }
-
-// void hex_to_bin(const char *hex, unsigned char *bin, size_t bin_len){
-//     for (size_t i = 0; i < bin_len; i++){
-//         sscanf(hex+2*i, "%2hhx", &bin[i]);
-//     }
-// }
-
-// int main( )
-// {
-//     int fd;
-//     int i;
-//     struct data valz[20];
-//     int count = 20;
-//     int bytes = 0;
-
-//     unsigned char buffer[double_size];
-//     double value;
-//     ssize_t bytesRead;
-
-//     fd = checkError(open("raw.dat",O_RDONLY), "open for read"); 
-
-//     while((bytesRead = read(fd, buffer, double_size))==double_size){
-//         memcpy(&value, buffer, double_size);
-//         printf("Double %lf]n", value);
-//     }
-    
-
-    
-//     // bytes = checkError(read(fd, valz, sizeof(struct data)*20), "read");
-
-//     // for (i = 0; i< bytes/sizeof(struct data);i++){
-//     //     printf("ax: %lf  ay: %lf   az: %lf\n", valz[i].ax, valz[i].ay,valz[i].az);
-
-//     //     printf("wx: %lf  wy: %lf   wz: %lf\n", valz[i].wx, valz[i].wy,valz[i].wz);
-
-//     //     printf("roll: %lf  pitch: %lf   yaw: %lf\n", valz[i].roll, valz[i].pitch,valz[i].yaw);
-//     // }
-
-//     close(fd);
-//     exit(EXIT_SUCCESS);
-// }
