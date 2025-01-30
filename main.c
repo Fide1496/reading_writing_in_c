@@ -7,17 +7,19 @@
 #include <unistd.h>
 #include <stdint.h>
 
-#define PACKET_SIZE 8
+#define PACKET_SIZE 20
 #define OUTPUT_FILE "data.dat"
+// #define SCALING_FACTOR 32768.0   
 
-#define SCALING_FACTOR 32768.0   
 
-int16_t combine_bytes(uint8_t high, uint8_t low) {
+
+int16_t combine_bytes(uint8_t low, uint8_t high) {
     return (int16_t)((high << 8) | low);
 }
 
 // Function to process and print a 20-byte packet
-void process_packet(uint8_t *buffer, int output_fd) {
+void process_data_packet(uint8_t *buffer, int output_fd) {
+
     int16_t ax_raw = combine_bytes(buffer[2], buffer[3]);
     int16_t ay_raw = combine_bytes(buffer[4], buffer[5]);
     int16_t az_raw = combine_bytes(buffer[6], buffer[7]);
@@ -31,28 +33,29 @@ void process_packet(uint8_t *buffer, int output_fd) {
     int16_t yaw_raw = combine_bytes(buffer[18], buffer[19]);
 
     // Convert to double using scale factors
-    double ax = ax_raw / SCALING_FACTOR;
-    double ay = ay_raw / SCALING_FACTOR;
-    double az = az_raw / SCALING_FACTOR;
+    double ax = ax_raw / (32768.0) * 16;
+    double ay = ay_raw / (32768.0) * 16;
+    double az = az_raw / (32768.0) * 16;
 
-    double wx = wx_raw / SCALING_FACTOR;
-    double wy = wy_raw / SCALING_FACTOR;
-    double wz = wz_raw / SCALING_FACTOR;
+    double wx = wx_raw / (32768.0) * 2000;
+    double wy = wy_raw / (32768.0) * 2000;
+    double wz = wz_raw / (32768.0) * 2000;
 
-    double roll = roll_raw / SCALING_FACTOR;
-    double pitch = pitch_raw / SCALING_FACTOR;
-    double yaw = yaw_raw / SCALING_FACTOR;
+    double roll = roll_raw / (32768.0) * 180;
+    double pitch = pitch_raw / (32768.0) * 180;
+    double yaw = yaw_raw / (32768.0) * 180;
 
     // Print to console
-    printf("ax:  %lf ay:  %lf az:  %lf\n", ax, ay, az);
-    printf("wx:  %lf wy:  %lf wz:  %lf\n", wx, wy, wz);
-    printf("roll:  %lf pitch:  %lf yaw:  %lf\n\n", roll, pitch, yaw);
+    printf("ax: %lf ay: %lf az: %lf\n", ax, ay, az);
+    printf("wx: %lf wy: %lf wz: %lf\n", wx, wy, wz);
+    printf("roll: %lf pitch: %lf yaw: %lf\n\n", roll, pitch, yaw);
 
     // Write binary doubles to the output file
     double data[] = {ax, ay, az, wx, wy, wz, roll, pitch, yaw};
     write(output_fd, data, sizeof(data));
 }
 
+// Check for error function
 int checkError(int val, const char *msg){
     if (val == -1)
     {
@@ -76,13 +79,12 @@ int main() {
 
     // Read and process packets
     while ((bytesRead = read(input_fd, buffer, PACKET_SIZE)) == PACKET_SIZE) {
-        process_packet(buffer, output_fd);
+        process_data_packet(buffer, output_fd);
     }
 
     // Close file input and output files
     close(input_fd);
     close(output_fd);
 
-    printf("Processing complete. Data written to %s\n", OUTPUT_FILE);
     return EXIT_SUCCESS;
 }
